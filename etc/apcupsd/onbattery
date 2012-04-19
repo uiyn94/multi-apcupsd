@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# This shell script if placed in /etc/apcupsd
+# will be called by /etc/apcupsd/apccontrol when the UPS
+# goes on batteries.
+# We send an email message to root to notify him.
+#
+SYSADMIN=root
+APCUPSD_MAIL="mail"
+UPSNAME=$1
+MYCONFIGFILE=`grep "UPSNAME *$UPSNAME$" /etc/apcupsd/apcupsd*.conf | sed 's/^[ \t]*//' | grep -v ^# | awk -F\: '{print $1}'`
+MYNISIP=`grep NISIP $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+MYNISPORT=`grep NISPORT $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+
+HOSTNAME=`hostname -f`
+MSG="$HOSTNAME $UPSNAME Power Failure !!!"
+#
+(
+   echo "Subject: $MSG"
+   echo " "
+   echo "$MSG"
+   echo " "
+   /sbin/apcaccess status $MYNISIP:$MYNISPORT
+) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
+
+if [ -e /var/lock/apcupsd.doshutdown.$UPSNAME ]
+then exit 0
+else
+/bin/echo -n $MSG | HOME=/root /usr/bin/sendxmpp  -r `hostname -f` sas@eb.co.ua alexdak@eb.co.ua
+/usr/bin/ssh modem sendsms 380675067467 "\"$MSG\""
+fi
+
+exit 0

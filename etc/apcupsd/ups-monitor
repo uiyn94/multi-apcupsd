@@ -1,0 +1,35 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:		ups-monitor
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:
+# Default-Stop:
+# Short-Description:	Stop ups-monitor
+# Description:		apcupsd provides UPS power management for APC products.
+### END INIT INFO
+
+# Martin Mitchell <martin@debian.org>
+# modifications by Gordon Morehouse <spambox@evernex.com> April 2001
+#
+# Modified to be "non-blocking" by Bjorn Wiberg <bjorn.wiberg@home.se> 2004-10-21
+# Place this script as /etc/init.d/ups-monitor in order for /etc/init.d/halt to find it!
+
+case "$1" in
+	poweroff | killpower)
+		for CONF in $(ls /etc/apcupsd/apcupsd*.conf) ; do 
+		        echo ""
+                        echo -n "apcupsd: Ordering UPS to kill power... "
+                        /sbin/apcupsd -f $CONF --killpower
+                        echo "done."
+                        echo ""
+		done
+	;;
+	*)
+	;;
+esac
+
+exit 0

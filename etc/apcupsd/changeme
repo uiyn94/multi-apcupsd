@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# This shell script if placed in /etc/apcupsd
+# will be called by /etc/apcupsd/apccontrol when apcupsd
+# detects that the battery should be replaced.
+# We send an email message to root to notify him.
+#
+SYSADMIN=root
+APCUPSD_MAIL="mail"
+UPSNAME=$1
+MYCONFIGFILE=`grep "UPSNAME *$UPSNAME$" /etc/apcupsd/apcupsd*.conf | sed 's/^[ \t]*//' | grep -v ^# | awk -F\: '{print $1}'`
+MYNISIP=`grep NISIP $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+MYNISPORT=`grep NISPORT $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+
+HOSTNAME=`hostname`
+MSG="$HOSTNAME $UPSNAME UPS battery needs changing NOW."
+#
+(
+   echo "Subject: $MSG"
+   echo " "
+   echo "$MSG"
+   echo " "
+   /sbin/apcaccess status $MYNISIP:$MYNISPORT
+) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
+exit 0

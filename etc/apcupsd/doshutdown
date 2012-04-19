@@ -1,0 +1,83 @@
+#!/bin/sh
+#
+UPSNAME=$1
+MYCONFIGFILE=`grep "UPSNAME *$UPSNAME$" /etc/apcupsd/apcupsd*.conf | sed 's/^[ \t]*//' | grep -v ^# | awk -F\: '{print $1}'`
+MYNISIP=`grep NISIP $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+MYNISPORT=`grep NISPORT $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+MYPID=`ps aux | grep apcupsd | grep -v grep | grep apcupsd.$UPSNAME.pid | grep $MYCONFIGFILE | awk '{print $2}'`
+MYPWRFAILDIR=`grep PWRFAILDIR $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+MYUPSTYPE=`grep UPSTYPE $MYCONFIGFILE | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+APCUPSD=/sbin/apcupsd
+SHUTDOWN=/sbin/shutdown
+ONLINEUPSNUM=1
+KILLMYPOWER=no
+
+killmyapcupsd ()
+{
+if [ `ps aux | grep apcupsd | grep -v grep | grep apcupsd.$UPSNAME.pid | grep $MYCONFIGFILE | awk '{print $2}'` ]
+	then until /bin/kill -15 `ps aux | grep apcupsd | grep -v grep | grep apcupsd.$UPSNAME.pid | grep $MYCONFIGFILE | awk '{print $2}'`; do sleep 3; done
+fi
+}
+
+killmypowerandrestart ()
+{
+if [ $MYUPSTYPE = apcsmart -o $MYUPSTYPE = usb -o $MYUPSTYPE = dumb ]
+then
+	killmyapcupsd
+	/usr/bin/touch /var/lock/apcupsd.doshutdown.$UPSNAME $MYPWRFAILDIR/powerfail
+	if [ $KILLMYPOWER = yes ]
+	then $APCUPSD -f $MYCONFIGFILE --killpower ; sleep 80
+	fi
+	sleep 5
+	while [ -e /var/lock/apcupsd.doshutdown.$UPSNAME ]; do
+	$APCUPSD -f $MYCONFIGFILE -P /var/run/apcupsd.$UPSNAME.pid; sleep 30
+		if ( /sbin/apcaccess status $MYNISIP:$MYNISPORT 2>/dev/null | grep STATUS | grep -q ONLINE )
+		then /bin/rm /var/lock/apcupsd.doshutdown.$UPSNAME $MYPWRFAILDIR/powerfail ; /etc/apcupsd/offbattery $UPSNAME
+		else killmyapcupsd; sleep 30
+		fi
+	done
+else exit 99
+fi
+}
+
+
+doshutdown ()
+{
+/usr/bin/killall apcupsd
+for CONF in `ls /etc/apcupsd/apcupsd*.conf`; do
+	PWRFAILDIR=`grep PWRFAILDIR $CONF | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+	/usr/bin/touch $PWRFAILDIR/powerfail
+done
+${SHUTDOWN} -h now
+}
+
+
+if [ -e /var/lock/apcupsd.doshutdown.$UPSNAME ]
+then exit 99
+else
+ONLINEUPSCOUNT=0
+	if ( cat /etc/default/apcupsd | sed 's/^[ \t]*//' | grep -v ^# | grep -q ONLINEUPSNUM )
+	then ONLINEUPSNUM=`grep ONLINEUPSNUM /etc/default/apcupsd| awk -F \= '{print $2}'`
+	else ONLINEUPSNUM=$ONLINEUPSNUM
+	fi
+	if ( cat /etc/default/apcupsd | sed 's/^[ \t]*//' | grep -v ^# | grep -q KILLMYPOWER )
+	then KILLMYPOWER=`grep KILLMYPOWER /etc/default/apcupsd| awk -F \= '{print $2}'`
+	else KILLMYPOWER=$KILLMYPOWER
+	fi
+	for CONF in `ls /etc/apcupsd/apcupsd*.conf | grep -v $MYCONFIGFILE` $MYCONFIGFILE; do
+	NISIP=`grep NISIP $CONF | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+	NISPORT=`grep NISPORT $CONF | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+	PWRFAILDIR=`grep PWRFAILDIR $CONF | sed 's/^[ \t]*//' | grep -v ^# | awk '{print $2}'`
+		if [ $CONF != $MYCONFIGFILE ]
+		then
+			if [ -e $PWRFAILDIR/powerfail ]
+			then true
+			else ONLINEUPSCOUNT=`expr $ONLINEUPSCOUNT + 1`
+				if [ $ONLINEUPSCOUNT -ge $ONLINEUPSNUM ]
+				then killmypowerandrestart; exit 99
+				fi
+			fi
+		else doshutdown
+		fi
+	done
+fi
