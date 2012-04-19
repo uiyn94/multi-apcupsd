@@ -24,6 +24,6 @@ MSG="$HOSTNAME $UPSNAME Power has returned"
 ) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
 
 /bin/echo -n $MSG | HOME=/root /usr/bin/sendxmpp  -r `hostname -f` me@jabber.org
-/usr/bin/ssh modem sendsms 380671234567 "\"$MSG\""
+/usr/bin/ssh modem.mydomain.ua sendsms 380671234567 "\"$MSG\""
 
 exit 0

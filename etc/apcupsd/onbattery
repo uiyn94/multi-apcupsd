@@ -27,7 +27,7 @@ if [ -e /var/lock/apcupsd.doshutdown.$UPSNAME ]
 then exit 0
 else
 /bin/echo -n $MSG | HOME=/root /usr/bin/sendxmpp  -r `hostname -f` me@jabber.org
-/usr/bin/ssh modem sendsms 380671234567 "\"$MSG\""
+/usr/bin/ssh modem.mydomain.ua sendsms 380671234567 "\"$MSG\""
 fi
 
 exit 0
