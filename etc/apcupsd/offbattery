@@ -23,7 +23,7 @@ MSG="$HOSTNAME $UPSNAME Power has returned"
    /sbin/apcaccess status $MYNISIP:$MYNISPORT
 ) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
 
-/bin/echo -n $MSG | HOME=/root /usr/bin/sendxmpp  -r `hostname -f` sas@eb.co.ua alexdak@eb.co.ua
-/usr/bin/ssh modem sendsms 380675067467 "\"$MSG\""
+/bin/echo -n $MSG | HOME=/root /usr/bin/sendxmpp  -r `hostname -f` me@jabber.org
+/usr/bin/ssh modem sendsms 380671234567 "\"$MSG\""
 
 exit 0
